@@ -433,6 +433,46 @@ describe('Installer targets — partial-state idempotency', () => {
     expect(legacy.mcpServers.codegraph).toBeUndefined();
     expect(legacy.mcpServers.other).toBeDefined();
   });
+
+  it('antigravity: install writes mcp_config.json with correct format', () => {
+    const target = getTarget('antigravity')!;
+    target.install('global', { autoAllow: true });
+
+    const configPath = path.join(tmpHome, '.gemini', 'config', 'mcp_config.json');
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(content.mcpServers).toBeDefined();
+    expect(content.mcpServers.codegraph).toBeDefined();
+    expect(content.mcpServers.codegraph.command).toBe('codegraph');
+    expect(content.mcpServers.codegraph.args).toEqual(['serve', '--mcp']);
+    expect(content.mcpServers.codegraph.env).toEqual({});
+    expect(content.mcpServers.codegraph.type).toBeUndefined();
+
+    const agentsMd = path.join(tmpHome, '.gemini', 'config', 'AGENTS.md');
+    expect(fs.existsSync(agentsMd)).toBe(true);
+  });
+
+  it('antigravity: uninstall removes only mcpServers.codegraph, preserving siblings', () => {
+    const target = getTarget('antigravity')!;
+    const configPath = path.join(tmpHome, '.gemini', 'config', 'mcp_config.json');
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+
+    const initialConfig = {
+      mcpServers: {
+        other: { command: 'other-command' }
+      }
+    };
+    fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2) + '\n');
+
+    target.install('global', { autoAllow: true });
+    target.uninstall('global');
+
+    const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(content.mcpServers).toBeDefined();
+    expect(content.mcpServers.other).toEqual({ command: 'other-command' });
+    expect(content.mcpServers.codegraph).toBeUndefined();
+  });
 });
 
 describe('Installer targets — registry', () => {
@@ -441,6 +481,7 @@ describe('Installer targets — registry', () => {
     expect(getTarget('cursor')?.id).toBe('cursor');
     expect(getTarget('codex')?.id).toBe('codex');
     expect(getTarget('opencode')?.id).toBe('opencode');
+    expect(getTarget('antigravity')?.id).toBe('antigravity');
     expect(getTarget('not-a-real-target')).toBeUndefined();
   });
 
